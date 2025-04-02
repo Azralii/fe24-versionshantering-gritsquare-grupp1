@@ -1,15 +1,12 @@
-const base_url =
-    "https://fe24-vs-grupp1-slutprojekt-default-rtdb.europe-west1.firebasedatabase.app/.json";
-// comments
-// ännu mer comments lol
+const base_url = "https://fe24-vs-grupp1-slutprojekt-default-rtdb.europe-west1.firebasedatabase.app/.json";
+
 class MessageInfo {
     constructor(name, message) {
         this.name = name;
         this.message = message;
-        this.timestamp = new Date().toLocaleString(); // Ger ett läsbart datum och tid
+        this.timestamp = new Date().toLocaleString();
     }
 }
-
 
 async function shakeMessages() {
     const allMessages = document.querySelectorAll(".message-item");
@@ -24,11 +21,8 @@ async function shakeMessages() {
     });
 }
 
-// generating color
-
 function createRandomColor() {
     const getRandomValue = () => Math.floor(Math.random() * 156) + 100;
-
     let red = getRandomValue();
     let green = getRandomValue();
     let blue = getRandomValue();
@@ -38,14 +32,11 @@ function createRandomColor() {
     if (Math.abs(green - blue) < MIN_DIFF) blue = (blue + 100) % 256;
     if (Math.abs(blue - red) < MIN_DIFF) red = (red + 100) % 256;
 
-    const rgbColor = `rgb(${red}, ${green}, ${blue})`;
-    console.log(rgbColor);
-    return rgbColor;
+    return `rgb(${red}, ${green}, ${blue})`;
 }
 
 export async function addMessage(event) {
     event.preventDefault();
-
     const nameInput = document.querySelector("#name");
     const messageInput = document.querySelector("#messageBoard");
 
@@ -53,45 +44,32 @@ export async function addMessage(event) {
     const message = messageInput.value.trim();
     const birthdayDiv = document.querySelector(".birthdayDiv");
     birthdayDiv.style.display = "none";
+
     if (!name || !message) {
         alert("Provide both name and message");
         return;
     }
+
     if (message.includes("my birthday")) {
         birthdayDiv.style.display = "block";
-        setTimeout(() => {
-            birthdayDiv.style.display = "none";
-        }, 2000);
-    } else {
-        birthdayDiv.style.display = "none";
+        setTimeout(() => birthdayDiv.style.display = "none", 2000);
     }
 
     const newMessage = new MessageInfo(name, message);
 
-    const options = {
-        method: "POST",
-        body: JSON.stringify(newMessage),
-        headers: {
-            "Content-Type": "application/json; charset=UTF-8",
-        },
-    };
-
     try {
-        const res = await fetch(base_url, options);
-        if (!res.ok)
-            throw new Error(
-                "Something went wrong when adding a message. Try again!"
-            );
+        const res = await fetch(base_url, {
+            method: "POST",
+            body: JSON.stringify(newMessage),
+            headers: { "Content-Type": "application/json; charset=UTF-8" }
+        });
 
-        const data = await res.json();
-        console.log("Message added:", data);
+        if (!res.ok) throw new Error("Something went wrong!");
 
         fetchMessages();
-
         nameInput.value = "";
         messageInput.value = "";
-
-        showSuccessNotification(); // Visar en notifiering om att meddelandet skickades
+        showSuccessNotification();
     } catch (error) {
         console.error("Error:", error);
         alert("Could not add a message, try again!");
@@ -104,89 +82,82 @@ export async function fetchMessages() {
         if (!res.ok) throw new Error("Could not fetch messages");
 
         const data = await res.json();
-        const messageArray = data ? Object.values(data) : [];
+        const messages = data ? Object.entries(data) : [];
 
-        if (messageArray.length === 0) {
-            displayNoMessagesMessage();  // Visa meddelande om inga meddelanden finns
+        if (messages.length === 0) {
+            displayNoMessagesMessage();
         } else {
-            displayMessages(messageArray);  // Visa meddelandena
-            displayMessageOfTheDay(messageArray);  // Visa dagens meddelande
+            displayMessages(messages);
+            displayMessageOfTheDay(messages);
         }
     } catch (error) {
         console.error("Error fetching messages:", error);
     }
 }
 
-// Ny funktion för att visa ett meddelande när inga meddelanden finns
 function displayNoMessagesMessage() {
     const messageDisplay = document.querySelector("#messageDisplay");
-
-    if (!messageDisplay) {
-        console.error("Error: #messageDisplay not found");
-        return;
-    }
-
-    messageDisplay.innerHTML = "<p>Inga meddelanden än.</p>";
+    if (messageDisplay) messageDisplay.innerHTML = "<p>Inga meddelanden än.</p>";
 }
 
 export function displayMessages(messages) {
     const messageDisplay = document.querySelector("#messageDisplay");
-
-    if (!messageDisplay) {
-        console.error("Error: #messageDisplay not found");
-        return;
-    }
+    if (!messageDisplay) return;
 
     messageDisplay.innerHTML = "";
 
-    messages.forEach((message) => {
+    messages.forEach(([id, message]) => {
         const messageElement = document.createElement("div");
         messageElement.classList.add("message-item");
-        const backgroundColor = createRandomColor();
-        messageElement.style.backgroundColor = backgroundColor;
+        messageElement.style.backgroundColor = createRandomColor();
 
         messageElement.innerHTML = `
-                <strong>${message.name}</strong> (${message.timestamp}) <br>
-                ${message.message}
-                <hr>
-            `;
+            <strong>${message.name}</strong> (${message.timestamp}) <br>
+            ${message.message}
+            <button class="delete-btn" data-id="${id}">❌</button>
+            <hr>
+        `;
+
+        messageElement.querySelector(".delete-btn").addEventListener("click", () => deleteMessage(id));
         messageDisplay.prepend(messageElement);
-        shakeMessages();
     });
+
+    shakeMessages();
 }
 
-// Ny funktion för att visa en notifiering om att meddelandet skickades
+async function deleteMessage(messageId) {
+    const url = `https://fe24-vs-grupp1-slutprojekt-default-rtdb.europe-west1.firebasedatabase.app/${messageId}.json`;
+
+    try {
+        const res = await fetch(url, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete message");
+
+        fetchMessages();
+    } catch (error) {
+        console.error("Error deleting message:", error);
+        alert("Could not delete the message, try again!");
+    }
+}
+
 function showSuccessNotification() {
     const notification = document.createElement("div");
     notification.classList.add("notification");
     notification.textContent = "Meddelandet har skickats!";
-    
     document.body.appendChild(notification);
 
-    // Ta bort notifieringen efter 3 sekunder
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
+    setTimeout(() => notification.remove(), 3000);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
     fetchMessages();
-
     const submitBtn = document.querySelector("#submitButton");
-    if (submitBtn) {
-        submitBtn.addEventListener("click", addMessage);
-    } else {
-        console.error("Error");
-    }
+    if (submitBtn) submitBtn.addEventListener("click", addMessage);
 });
 
 export function displayMessageOfTheDay(messages) {
     const motdContainer = document.querySelector("#motdDisplay");
 
-    if (!motdContainer) {
-        console.error("MOTD container not found.");
-        return;
-    }
+    if (!motdContainer) return;
 
     if (messages.length === 0) {
         motdContainer.textContent = "No messages yet.";
@@ -194,7 +165,7 @@ export function displayMessageOfTheDay(messages) {
     }
 
     const randomIndex = Math.floor(Math.random() * messages.length);
-    const motd = messages[randomIndex];
+    const motd = messages[randomIndex][1];
 
     motdContainer.innerHTML = `
         <strong>${motd.name}</strong> (${motd.timestamp}) <br>
