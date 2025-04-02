@@ -10,6 +10,7 @@ class MessageInfo {
     }
 }
 
+
 async function shakeMessages() {
     const allMessages = document.querySelectorAll(".message-item");
     allMessages.forEach((msg) => {
